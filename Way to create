@@ -1,0 +1,117 @@
+🚀 Deploying a React Application with Docker and Docker Compose
+🎯 Objective:
+
+📂 Clone the React application repository
+
+🐳 Dockerize it using NGINX
+
+🌐 Run the app on port 80
+
+⚙️ Optionally, create a docker-compose.yml for easy management
+
+Step 1: Clone the Repository 📝
+# Clone the React app repo
+git clone https://github.com/sriram-R-krishnan/devops-build
+cd devops-build
+Step 2: Install Docker 🐳
+# Update packages
+sudo apt update
+
+# Install Docker
+sudo apt install -y docker.io
+
+# Start Docker service
+sudo systemctl start docker
+
+# Enable Docker to start on boot
+sudo systemctl enable docker
+
+✅ Check Docker version:
+
+docker --version
+Step 3: Create Dockerfile 📝
+
+Create a file named Dockerfile in the project root:
+
+# Use lightweight NGINX image
+FROM nginx:alpine
+
+# Set working directory to NGINX default
+WORKDIR /usr/share/nginx/html
+
+# Copy the build folder into NGINX
+COPY build/ /usr/share/nginx/html
+
+# Run NGINX in foreground
+CMD ["nginx", "-g", "daemon off;"]
+
+💡 Note: Ensure your React app is built first with npm run build so the build/ folder exists. ✅
+
+Step 4: Build Docker Image 🛠️
+# Build Docker image with tag 'react-app'
+sudo docker build -t react-app .
+Step 5: Run Docker Container ▶️
+# Run container in detached mode on port 80
+sudo docker run -d -p 80:80 --name react-app react-app
+
+🔹 Options explained:
+
+-d → Detached mode
+
+-p 80:80 → Map container port 80 to host port 80
+
+--name react-app → Name the container for easy reference
+
+✅ Check running container:
+
+docker ps
+
+🌐 Visit your app in browser:
+
+http://<EC2_PUBLIC_IP>
+Step 6 (Optional): Create Docker Compose File ⚙️
+
+Create docker-compose.yml for easier management:
+
+version: "3.8"
+
+services:
+  react-app:
+    image: react-app
+    build: .
+    container_name: react-app
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+💻 Run the app using Docker Compose:
+
+# Build and start containers
+sudo docker-compose up -d
+
+🔹 Options explained:
+
+-d → Detached mode
+
+restart: unless-stopped → ensures the app restarts automatically if Docker restarts
+
+Step 7: Verify Deployment ✅
+# Check running containers
+docker ps
+
+# Stop container
+docker stop react-app
+
+# Remove container
+docker rm react-app
+
+🌐 Open the browser at:
+
+http://<EC2_PUBLIC_IP>
+✅ Outcome:
+
+🐳 The React app is deployed in an NGINX Docker container
+
+🌐 Runs on port 80
+
+⚙️ Can be managed via docker-compose for easier scalability
