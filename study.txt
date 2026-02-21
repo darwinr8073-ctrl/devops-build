@@ -1,0 +1,73 @@
+git add .
+git commit -m "Initial production setup"
+
+git config --global user.name "Darwin Prem Kumar"
+git config --global user.email "your-email@example.com"
+git checkout main
+git push -u origin main
+
+
+docker login
+docker build -t darwinr8073react-dev .
+docker push darwinr8073react-dev
+docker build -t darwinr8073react-prod .
+docker push darwinr8073react-prod
+
+docker login
+docker tag react-app darwinr8073/react-prod:latest
+docker push darwinr8073/react-prod:latest
+
+
+
+dckr_pat_KzmHXmz2ajjsD4s93-6RdEdGNRo
+
+
+sudo yum update -y
+sudo amazon-linux-extras install docker -y
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker ec2-user
+
+newgrp docker
+docker --version
+
+
+# Option 1: Clone repo and build locally
+git clone https://github.com/darwinr8073/devops-build.git
+cd devops-build
+./build.sh react-app
+
+# Option 2: Pull already pushed image from Docker Hub
+docker login   # with Docker Hub username + PAT
+docker pull darwinr8073/react-prod:latest
+
+# 1️⃣ Update system
+sudo yum update -y
+
+# 2️⃣ Install wget & tar if not present
+sudo yum install wget tar -y
+
+# 3️⃣ Download a fixed OpenJDK 17 tar.gz from Adoptium
+wget https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.18%2B8/OpenJDK17U-jdk_x64_linux_hotspot_17.0.18_8.tar.gz -O jdk17.tar.gz
+
+# 4️⃣ Extract to /usr/local/java
+sudo mkdir -p /usr/local/java
+sudo tar -xzf jdk17.tar.gz -C /usr/local/java
+
+# 5️⃣ Set JAVA_HOME and update PATH
+export JAVA_HOME=$(ls -d /usr/local/java/jdk-17.0.18+8)
+export PATH=$JAVA_HOME/bin:$PATH
+java -version
+
+# 6️⃣ Download Jenkins WAR
+wget https://get.jenkins.io/war-stable/2.414.3/jenkins.war
+
+# 7️⃣ Run Jenkins in background
+nohup java -jar jenkins.war --httpPort=8080 > jenkins.log 2>&1 &
+
+# 8️⃣ Show initial admin password
+sleep 5
+cat ~/.jenkins/secrets/initialAdminPassword
+
+# 9️⃣ Instructions for browser
+echo "Open http://<EC2-PUBLIC-IP>:8080 and use the above password to unlock Jenkins"

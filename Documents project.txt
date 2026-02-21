@@ -1,0 +1,312 @@
+git config --global user.name "Darwin"
+
+git config --global user.email "darwinr8073@gmail.com"
+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
+
+
+✅ 1. Clone the project
+Bash
+Copy code
+git clone https://github.com/sriram-R-harshan/devops_build.git
+cd devops_build
+Run locally once to confirm it works:
+Bash
+Copy code
+npm install
+npm start
+✅ 2. Create a Production Dockerfile
+Inside the project root:
+Dockerfile
+Copy code
+# Build stage
+FROM node:18 AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+COPY --from=build /app/build /usr/share/nginx/html
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+👉 This builds React → serves with Nginx → runs on port 80.
+
+✅ 3. Create docker-compose.yml
+YAML
+Copy code
+version: "3.9"
+
+services:
+  react-app:
+    build: .
+    ports:
+      - "80:80"
+    restart: always
+Run locally with:
+Bash
+Copy code
+docker compose up --build
+Open → http://localhost�
+✅ 4. Write Bash Scripts
+🔹 build.sh
+Builds Docker image
+Bash
+Copy code
+#!/bin/bash
+IMAGE_NAME=$1
+docker build -t $IMAGE_NAME .
+🔹 deploy.sh
+Push + run on server
+Bash
+Copy code
+#!/bin/bash
+IMAGE_NAME=$1
+
+docker pull $IMAGE_NAME
+docker stop react-app || true
+docker rm react-app || true
+docker run -d -p 80:80 --name react-app $IMAGE_NAME
+Make executable:
+Bash
+Copy code
+chmod +x build.sh deploy.sh
+✅ 5. Version Control Setup (CLI only)
+Bash
+Copy code
+git init
+echo "node_modules" >> .gitignore
+echo "build" >> .gitignore
+
+git add .
+git commit -m "Initial production setup"
+Create dev branch:
+Bash
+Copy code
+git checkout -b dev
+git push origin dev
+✅ 6. Create Repositories on Docker Hub
+You need TWO repos:
+yourname/react-dev → public
+yourname/react-prod → private
+Login:
+Bash
+Copy code
+docker login
+Build + push DEV image:
+Bash
+Copy code
+docker build -t yourname/react-dev .
+docker push yourname/react-dev
+Build + push PROD image:
+Bash
+Copy code
+docker build -t yourname/react-prod .
+docker push yourname/react-prod
+✅ 7. Deploy on Server (Production)
+On server machine:
+Bash
+Copy code
+docker pull yourname/react-prod
+docker run -d -p 80:80 yourname/react-prod
+App will run on: 👉 http://server-ip�
+✅ 8. What you submit / show
+✔ Running app on port 80
+✔ Dockerfile
+✔ docker-compose.yml
+✔ build.sh & deploy.sh
+✔ Git branches (dev + main)
+✔ Docker Hub dev + prod images
+
+------------------
+✅ 9. Install Jenkins on Server
+On your Linux VM (Ubuntu recommended):
+Bash
+Copy code
+sudo apt update
+sudo apt install openjdk-17-jdk -y
+Install Jenkins:
+Bash
+Copy code
+curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
+  /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+
+echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+sudo apt update
+sudo apt install jenkins -y
+Start Jenkins:
+Bash
+Copy code
+sudo systemctl enable jenkins
+sudo systemctl start jenkins
+Open in browser: 👉 http://SERVER-IP:8080
+Get admin password:
+Bash
+Copy code
+sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+Install suggested plugins.
+✅ 10. Install Docker on Same Server
+Jenkins must build images.
+Bash
+Copy code
+sudo apt install docker.io -y
+sudo usermod -aG docker jenkins
+sudo systemctl restart jenkins
+Login Docker inside Jenkins machine:
+Bash
+Copy code
+docker login
+✅ 11. Connect Jenkins to GitHub Repo
+Inside Jenkins:
+1️⃣ New Item → Freestyle Project
+2️⃣ Source Code Management → Git
+3️⃣ Repo URL → your repo
+4️⃣ Branches to build:
+*/dev
+*/main
+Enable: ✔ Poll SCM or GitHub webhook trigger
+✅ 12. Jenkins Build Logic (IMPORTANT PART)
+In Build Steps → Execute Shell:
+Bash
+Copy code
+#!/bin/bash
+
+REPO_DEV=yourname/react-dev
+REPO_PROD=yourname/react-prod
+
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+echo "Branch: $BRANCH"
+
+# Build image
+docker build -t app-image .
+
+if [ "$BRANCH" = "dev" ]; then
+    docker tag app-image $REPO_DEV
+    docker push $REPO_DEV
+fi
+
+if [ "$BRANCH" = "main" ]; then
+    docker tag app-image $REPO_PROD
+    docker push $REPO_PROD
+
+    docker stop react-app || true
+    docker rm react-app || true
+    docker run -d -p 80:80 --name react-app $REPO_PROD
+fi
+👉 What this does:
+Push to dev branch → build + push dev image
+Merge to main → build + push prod image + deploy
+Exactly matches assignment requirement.
+✅ 13. AWS Deployment Setup
+Use Amazon Web Services.
+Launch server
+Create:
+Ubuntu instance
+t2.micro
+Allow ports:
+22 (SSH)
+80 (HTTP)
+8080 (Jenkins)
+Security Group rule: ✔ Port 80 → anywhere
+✔ SSH → only your IP
+✅ 14. Deploy App on AWS Automatically
+When code merges to main: ✔ Jenkins builds image
+✔ Pushes to prod repo
+✔ Runs container on port 80
+Access: 👉 http://EC2-PUBLIC-IP
+✅ 15. Final Flow (How Everything Connects)
+Developer push → GitHub → Jenkins → Docker → Server
+Dev branch ➡ build image
+➡ push to dev repo
+Main branch ➡ build image
+➡ push to prod repo
+➡ deploy container
+That’s the full CI/CD pipeline.
+----------------------
+✅ 16. Setup Monitoring (Health Check)
+Goal: check if your deployed app is alive on port 80 and alert only if it goes down.
+Option A — Simple Open-Source Monitoring (recommended for assignment)
+Install Uptime Kuma on your server:
+Bash
+Copy code
+docker run -d \
+  --name uptime-kuma \
+  -p 3001:3001 \
+  louislam/uptime-kuma
+Open: 👉 http://SERVER-IP:3001
+Setup monitor:
+Type → HTTP(s)
+URL → http://YOUR-EC2-IP
+Interval → 1 minute
+Notifications (optional but bonus marks):
+Email
+Telegram
+Discord
+This satisfies: ✔ health check
+✔ open-source monitoring
+✔ alert only when down
+Option B — Bash Health Check (lightweight alternative)
+Create healthcheck.sh:
+Bash
+Copy code
+#!/bin/bash
+
+STATUS=$(curl -o /dev/null -s -w "%{http_code}" http://localhost)
+
+if [ "$STATUS" != "200" ]; then
+  echo "Application DOWN!"
+  # optional: send email or log
+fi
+Run every minute:
+Bash
+Copy code
+crontab -e
+Add:
+Copy code
+
+* * * * * /home/ubuntu/healthcheck.sh
+✅ 17. Verify Full Pipeline (Before Submission)
+Test these flows:
+🔹 Dev Branch Push
+Push code → dev
+Jenkins builds image
+Image pushed to dev repo in Docker Hub
+No production deployment
+🔹 Merge to Main
+Merge dev → main
+Jenkins builds image
+Push to prod repo
+Container auto-runs on AWS
+App available at public IP
+✅ 18. AWS Access Control Requirement
+In Amazon Web Services security group:
+✔ Port 80 → open to all
+✔ Port 22 → only your IP
+✔ Jenkins 8080 → only your IP
+This matches the requirement: 👉 only you can login
+👉 anyone can access website
+✅ 19. What to Submit
+Provide these links:
+✔ GitHub repo URL
+✔ Deployed site URL
+✔ Dev Docker image name
+✔ Prod Docker image name
+Upload screenshots of:
+1️⃣ Jenkins dashboard + build success
+2️⃣ Jenkins job configuration
+3️⃣ AWS EC2 instance + security group
+4️⃣ Running website in browser
+5️⃣ Docker Hub repos with tags
+6️⃣ Monitoring dashboard showing “UP”
+Use GitHub repo to upload screenshots.
+✅ 20. Final Architecture (Explain in Viva)
+Flow you should describe:
+Developer → GitHub → Jenkins → Docker build → Docker Hub → AWS Server → Running Container → Monitoring
+Branch logic:
+dev → build + push dev image
+main → build + push prod image + deploy
